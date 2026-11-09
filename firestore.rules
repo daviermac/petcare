@@ -1,0 +1,67 @@
+rules_version = '2';
+
+// Regras de segurança do Pet Care (RT06, RNF03, RNF04).
+// O perfil do usuário vem do custom claim "perfil", definido pela API.
+// Escritas com regra de negócio (consultas, cadastro de tutor) só pela API (Admin SDK ignora estas regras).
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function logado() { return request.auth != null; }
+    function perfil() { return request.auth.token.perfil; }
+    function eh(p) { return logado() && perfil() == p; }
+    function equipe() {
+      return logado() && perfil() in ['atendente', 'veterinario', 'gestor', 'auxiliar'];
+    }
+    function equipeComDadosPessoais() {
+      return logado() && perfil() in ['atendente', 'veterinario', 'gestor'];
+    }
+    function dono(tutorId) { return logado() && request.auth.uid == tutorId; }
+
+    // Usuários do sistema (perfil, tokens de notificação)
+    match /usuarios/{uid} {
+      allow read: if dono(uid) || eh('gestor');
+      allow write: if false;
+    }
+
+    // Dados pessoais do tutor (CPF, telefone) — LGPD
+    match /tutores/{uid} {
+      allow read: if dono(uid) || equipeComDadosPessoais();
+      allow write: if false;
+    }
+
+    // Animais: o tutor cadastra os próprios; dados validados aqui também (RNF04)
+    match /animais/{animalId} {
+      function animalValido(d) {
+        return d.keys().hasOnly(['tutorId', 'nome', 'especie', 'raca', 'idade', 'criadoEm'])
+          && d.nome is string && d.nome.size() > 0 && d.nome.size() <= 60
+          && d.especie in ['cachorro', 'gato', 'outro']
+          && d.raca is string && d.raca.size() <= 60
+          && d.idade is int && d.idade >= 0 && d.idade <= 40;
+      }
+      allow read: if dono(resource.data.tutorId) || equipe();
+      allow create: if (dono(request.resource.data.tutorId) || eh('atendente'))
+        && animalValido(request.resource.data);
+      allow update: if (dono(resource.data.tutorId) || eh('atendente'))
+        && request.resource.data.tutorId == resource.data.tutorId
+        && animalValido(request.resource.data);
+      allow delete: if false;
+    }
+
+    // Consultas: leitura pelo dono ou equipe; escrita só pela API
+    match /consultas/{consultaId} {
+      allow read: if dono(resource.data.tutorId) || equipe();
+      allow write: if false;
+    }
+
+    // Horários ocupados: qualquer usuário logado vê (para riscar na tela); escrita só pela API
+    match /horariosOcupados/{slotId} {
+      allow read: if logado();
+      allow write: if false;
+    }
+
+    // Todo o resto (prontuários, vacinas, estoque, financeiro...) fica bloqueado até ser modelado
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

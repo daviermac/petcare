@@ -1,0 +1,30 @@
+{
+  "name": "petcare-api",
+  "version": "0.1.0",
+  "private": true,
+  "description": "API do Pet Care (Firebase Cloud Functions em camadas)",
+  "main": "lib/index.js",
+  "engines": {
+    "node": "22"
+  },
+  "scripts": {
+    "build": "tsc",
+    "build:watch": "tsc --watch",
+    "test": "jest",
+    "test:coverage": "jest --coverage",
+    "serve": "npm run build && firebase emulators:start --only functions,firestore,auth",
+    "deploy": "firebase deploy --only functions",
+    "logs": "firebase functions:log",
+    "openapi": "npm run build && node -e \"const {gerarOpenApi}=require('./lib/presentation/openapi');require('fs').writeFileSync('../docs/openapi.json',JSON.stringify(gerarOpenApi([{url:'https://southamerica-east1-SEU-PROJETO.cloudfunctions.net',description:'Produção'},{url:'http://127.0.0.1:5001/demo-petcare/southamerica-east1',description:'Emulador local'}]),null,2)+'\\n')\""
+  },
+  "dependencies": {
+    "firebase-admin": "^13.0.0",
+    "firebase-functions": "^6.1.0"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.12",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.2.5",
+    "typescript": "^5.6.3"
+  }
+}

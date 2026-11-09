@@ -1,0 +1,899 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Pet Care API",
+    "version": "0.1.0",
+    "description": "API do Pet Care (PetConnect) em Firebase Callable Functions.\n\nTodas as chamadas são `POST` com o corpo `{ \"data\": { ... } }` e respondem `{ \"result\": { ... } }`. No Flutter use `FirebaseFunctions.instanceFor(region: \"southamerica-east1\").httpsCallable(nome)`, que faz isso automaticamente.\n\nPara testar aqui: clique em **Authorize** e cole um ID token do Firebase Auth (veja `docs/api.md`)."
+  },
+  "servers": [
+    {
+      "url": "https://southamerica-east1-SEU-PROJETO.cloudfunctions.net",
+      "description": "Produção"
+    },
+    {
+      "url": "http://127.0.0.1:5001/demo-petcare/southamerica-east1",
+      "description": "Emulador local"
+    }
+  ],
+  "security": [
+    {
+      "firebaseIdToken": []
+    }
+  ],
+  "tags": [
+    {
+      "name": "Tutor",
+      "description": "Cadastro de tutores e animais"
+    },
+    {
+      "name": "Agendamento",
+      "description": "Consultas e horários"
+    },
+    {
+      "name": "Notificações",
+      "description": "Push e lembretes"
+    }
+  ],
+  "paths": {
+    "/registrarTutor": {
+      "post": {
+        "operationId": "registrarTutor",
+        "summary": "Completa o cadastro do tutor (RF01)",
+        "description": "Chamar logo após criar a conta no Firebase Auth. O e-mail vem do token. Define o perfil \"tutor\"; depois o app deve renovar o token (getIdToken(true)).",
+        "tags": [
+          "Tutor"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "data"
+                ],
+                "properties": {
+                  "data": {
+                    "type": "object",
+                    "required": [
+                      "nome",
+                      "cpf",
+                      "telefone"
+                    ],
+                    "properties": {
+                      "nome": {
+                        "type": "string",
+                        "example": "Ana Souza"
+                      },
+                      "cpf": {
+                        "type": "string",
+                        "example": "52998224725",
+                        "description": "Com ou sem máscara"
+                      },
+                      "telefone": {
+                        "type": "string",
+                        "example": "12991021830",
+                        "description": "DDD + número"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Sucesso",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "result"
+                  ],
+                  "properties": {
+                    "result": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "nome": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Dados inválidos (details.campos tem uma mensagem por campo) ou consulta que não está mais agendada (INVALID_ARGUMENT / FAILED_PRECONDITION)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Não logado (token ausente ou inválido) (UNAUTHENTICATED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Horário ocupado ou CPF já cadastrado (ALREADY_EXISTS)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/cadastrarAnimal": {
+      "post": {
+        "operationId": "cadastrarAnimal",
+        "summary": "Cadastra um animal (RF04)",
+        "description": "Tutor cadastra para si. Atendente informa o tutorId.",
+        "tags": [
+          "Tutor"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "data"
+                ],
+                "properties": {
+                  "data": {
+                    "type": "object",
+                    "required": [
+                      "nome",
+                      "especie",
+                      "idade"
+                    ],
+                    "properties": {
+                      "nome": {
+                        "type": "string",
+                        "example": "Apolo"
+                      },
+                      "especie": {
+                        "type": "string",
+                        "enum": [
+                          "cachorro",
+                          "gato",
+                          "outro"
+                        ],
+                        "example": "gato"
+                      },
+                      "raca": {
+                        "type": "string",
+                        "example": "sem raça definida"
+                      },
+                      "idade": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 40,
+                        "example": 6
+                      },
+                      "tutorId": {
+                        "type": "string",
+                        "description": "Obrigatório só para atendente"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Sucesso",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "result"
+                  ],
+                  "properties": {
+                    "result": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Dados inválidos (details.campos tem uma mensagem por campo) ou consulta que não está mais agendada (INVALID_ARGUMENT / FAILED_PRECONDITION)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Não logado (token ausente ou inválido) (UNAUTHENTICATED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Perfil sem permissão (PERMISSION_DENIED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Animal ou consulta não encontrado (NOT_FOUND)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/listarHorarios": {
+      "post": {
+        "operationId": "listarHorarios",
+        "summary": "Horários do dia com os ocupados marcados (RF06, RF07)",
+        "description": "Horários com disponivel=false aparecem riscados na Tela 03.",
+        "tags": [
+          "Agendamento"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "data"
+                ],
+                "properties": {
+                  "data": {
+                    "type": "object",
+                    "required": [
+                      "data"
+                    ],
+                    "properties": {
+                      "data": {
+                        "type": "string",
+                        "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+                        "example": "2026-11-09",
+                        "description": "AAAA-MM-DD"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Sucesso",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "result"
+                  ],
+                  "properties": {
+                    "result": {
+                      "type": "object",
+                      "properties": {
+                        "horarios": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "horario": {
+                                "type": "string",
+                                "enum": [
+                                  "08:00",
+                                  "09:30",
+                                  "11:00",
+                                  "14:00",
+                                  "15:30"
+                                ],
+                                "example": "11:00"
+                              },
+                              "disponivel": {
+                                "type": "boolean"
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Não logado (token ausente ou inválido) (UNAUTHENTICATED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Perfil sem permissão (PERMISSION_DENIED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/agendarConsulta": {
+      "post": {
+        "operationId": "agendarConsulta",
+        "summary": "Agenda uma consulta (RF06, RF07)",
+        "description": "Usa transação: se dois usuários confirmarem o mesmo horário, só um consegue (409 para o outro).",
+        "tags": [
+          "Agendamento"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "data"
+                ],
+                "properties": {
+                  "data": {
+                    "type": "object",
+                    "required": [
+                      "animalId",
+                      "data",
+                      "horario"
+                    ],
+                    "properties": {
+                      "animalId": {
+                        "type": "string"
+                      },
+                      "data": {
+                        "type": "string",
+                        "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+                        "example": "2026-11-09",
+                        "description": "AAAA-MM-DD"
+                      },
+                      "horario": {
+                        "type": "string",
+                        "enum": [
+                          "08:00",
+                          "09:30",
+                          "11:00",
+                          "14:00",
+                          "15:30"
+                        ],
+                        "example": "11:00"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Sucesso",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "result"
+                  ],
+                  "properties": {
+                    "result": {
+                      "$ref": "#/components/schemas/Consulta"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Dados inválidos (details.campos tem uma mensagem por campo) ou consulta que não está mais agendada (INVALID_ARGUMENT / FAILED_PRECONDITION)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Não logado (token ausente ou inválido) (UNAUTHENTICATED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Perfil sem permissão (PERMISSION_DENIED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Animal ou consulta não encontrado (NOT_FOUND)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Horário ocupado ou CPF já cadastrado (ALREADY_EXISTS)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/cancelarConsulta": {
+      "post": {
+        "operationId": "cancelarConsulta",
+        "summary": "Cancela uma consulta e libera o horário (RF11)",
+        "description": "Permitido ao tutor dono, atendente e gestor.",
+        "tags": [
+          "Agendamento"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "data"
+                ],
+                "properties": {
+                  "data": {
+                    "type": "object",
+                    "required": [
+                      "consultaId"
+                    ],
+                    "properties": {
+                      "consultaId": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Sucesso",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "result"
+                  ],
+                  "properties": {
+                    "result": {
+                      "$ref": "#/components/schemas/Ok"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Dados inválidos (details.campos tem uma mensagem por campo) ou consulta que não está mais agendada (INVALID_ARGUMENT / FAILED_PRECONDITION)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Não logado (token ausente ou inválido) (UNAUTHENTICATED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Perfil sem permissão (PERMISSION_DENIED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Animal ou consulta não encontrado (NOT_FOUND)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/remarcarConsulta": {
+      "post": {
+        "operationId": "remarcarConsulta",
+        "summary": "Remarca uma consulta (RF10)",
+        "description": "Somente atendente. Libera o horário antigo e ocupa o novo.",
+        "tags": [
+          "Agendamento"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "data"
+                ],
+                "properties": {
+                  "data": {
+                    "type": "object",
+                    "required": [
+                      "consultaId",
+                      "data",
+                      "horario"
+                    ],
+                    "properties": {
+                      "consultaId": {
+                        "type": "string"
+                      },
+                      "data": {
+                        "type": "string",
+                        "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+                        "example": "2026-11-09",
+                        "description": "AAAA-MM-DD"
+                      },
+                      "horario": {
+                        "type": "string",
+                        "enum": [
+                          "08:00",
+                          "09:30",
+                          "11:00",
+                          "14:00",
+                          "15:30"
+                        ],
+                        "example": "11:00"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Sucesso",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "result"
+                  ],
+                  "properties": {
+                    "result": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "data": {
+                          "type": "string"
+                        },
+                        "horario": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Dados inválidos (details.campos tem uma mensagem por campo) ou consulta que não está mais agendada (INVALID_ARGUMENT / FAILED_PRECONDITION)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Não logado (token ausente ou inválido) (UNAUTHENTICATED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Perfil sem permissão (PERMISSION_DENIED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Animal ou consulta não encontrado (NOT_FOUND)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Horário ocupado ou CPF já cadastrado (ALREADY_EXISTS)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/registrarTokenNotificacao": {
+      "post": {
+        "operationId": "registrarTokenNotificacao",
+        "summary": "Registra o token FCM do aparelho (RF19)",
+        "description": "Necessário para receber os lembretes de consulta.",
+        "tags": [
+          "Notificações"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "data"
+                ],
+                "properties": {
+                  "data": {
+                    "type": "object",
+                    "required": [
+                      "token"
+                    ],
+                    "properties": {
+                      "token": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Sucesso",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "result"
+                  ],
+                  "properties": {
+                    "result": {
+                      "$ref": "#/components/schemas/Ok"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Dados inválidos (details.campos tem uma mensagem por campo) ou consulta que não está mais agendada (INVALID_ARGUMENT / FAILED_PRECONDITION)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Não logado (token ausente ou inválido) (UNAUTHENTICATED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "firebaseIdToken": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "ID token do Firebase Auth do usuário logado"
+      }
+    },
+    "schemas": {
+      "Consulta": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "animalNome": {
+            "type": "string",
+            "example": "Thor"
+          },
+          "data": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+            "example": "2026-11-09",
+            "description": "AAAA-MM-DD"
+          },
+          "horario": {
+            "type": "string",
+            "enum": [
+              "08:00",
+              "09:30",
+              "11:00",
+              "14:00",
+              "15:30"
+            ],
+            "example": "11:00"
+          },
+          "local": {
+            "type": "string",
+            "example": "Hospital PetConnect"
+          }
+        }
+      },
+      "Ok": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "example": true
+          }
+        }
+      },
+      "Erro": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "object",
+            "properties": {
+              "status": {
+                "type": "string",
+                "example": "INVALID_ARGUMENT"
+              },
+              "message": {
+                "type": "string",
+                "example": "Dados inválidos"
+              },
+              "details": {
+                "type": "object",
+                "properties": {
+                  "campos": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "string"
+                    },
+                    "example": {
+                      "cpf": "CPF inválido."
+                    }
+                  },
+                  "codigo": {
+                    "type": "string",
+                    "example": "HORARIO_INDISPONIVEL"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

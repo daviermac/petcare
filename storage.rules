@@ -1,0 +1,27 @@
+rules_version = '2';
+
+// Anexos de exames e documentos (RF17, RT09): PDF, JPG ou PNG até 10 MB.
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function equipe() {
+      return request.auth != null
+        && request.auth.token.perfil in ['atendente', 'veterinario', 'gestor'];
+    }
+    function arquivoValido() {
+      return request.resource.size <= 10 * 1024 * 1024
+        && request.resource.contentType.matches('application/pdf|image/jpeg|image/png');
+    }
+
+    match /exames/{animalId}/{arquivo} {
+      // TODO: liberar leitura para o tutor dono do animal (firestore.get em /animais/{animalId})
+      allow read: if equipe();
+      allow create: if equipe() && arquivoValido();
+      allow update, delete: if false;
+    }
+
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
