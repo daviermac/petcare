@@ -59,7 +59,15 @@ service cloud.firestore {
       allow write: if false;
     }
 
-    // Todo o resto (prontuários, vacinas, estoque, financeiro...) fica bloqueado até ser modelado
+    // Prontuário: atendimentos, prescrições, vacinas e procedimentos (RF13–RF16, RF26).
+    // Escrita só pela API; nunca é apagado (RNF16). Auxiliar só lê procedimentos.
+    match /registrosMedicos/{registroId} {
+      allow read: if dono(resource.data.tutorId) || eh('veterinario')
+        || (eh('auxiliar') && resource.data.tipo == 'procedimento');
+      allow write: if false;
+    }
+
+    // Todo o resto (estoque, financeiro...) fica bloqueado até ser modelado
     match /{document=**} {
       allow read, write: if false;
     }

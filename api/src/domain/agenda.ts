@@ -20,6 +20,18 @@ export function paraInstante(data: string, horario: string): Date {
   return new Date(`${data}T${horario}:00${OFFSET_SP}`);
 }
 
+/** Data (AAAA-MM-DD) no fuso de São Paulo. */
+export function dataEmSaoPaulo(instante: Date): string {
+  return new Date(instante.getTime() - 3 * 3600_000).toISOString().slice(0, 10);
+}
+
+/** Soma dias a uma data AAAA-MM-DD. */
+export function somarDias(data: string, dias: number): string {
+  const d = new Date(`${data}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + dias);
+  return d.toISOString().slice(0, 10);
+}
+
 /** ID determinístico do horário: garante que só exista uma reserva por slot. */
 export function idDoHorario(data: string, horario: string): string {
   return `${data}_${horario.replace(':', '')}`;

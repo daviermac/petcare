@@ -1,7 +1,14 @@
 // Repositórios em memória para testar os serviços sem Firestore.
-import { AnimalRepositorio, ConsultaRepositorio, TutorRepositorio, UsuarioGateway } from '../src/application/portas';
+import {
+  AnimalRepositorio,
+  ConsultaRepositorio,
+  NovoFuncionario,
+  RegistroRepositorio,
+  TutorRepositorio,
+  UsuarioGateway,
+} from '../src/application/portas';
 import { idDoHorario } from '../src/domain/agenda';
-import { Animal, Consulta, Perfil, Tutor } from '../src/domain/entidades';
+import { Animal, Consulta, DadosRegistro, Perfil, RegistroMedico, Tutor } from '../src/domain/entidades';
 import { ErroNegocio } from '../src/domain/erros';
 
 let seq = 0;
@@ -28,6 +35,8 @@ export class ConsultasEmMemoria implements ConsultaRepositorio {
   itens = new Map<string, Consulta>();
   slots = new Set<string>();
   async buscarPorId(id: string) { return this.itens.get(id) ?? null; }
+  async listarPorData(data: string) { return [...this.itens.values()].filter((c) => c.data === data); }
+  async marcarRealizada(id: string) { this.itens.set(id, { ...this.itens.get(id)!, status: 'realizada' }); }
   async horariosOcupados(data: string) {
     return [...this.itens.values()].filter((c) => c.data === data && c.status === 'agendada').map((c) => c.horario);
   }
@@ -56,7 +65,52 @@ export class ConsultasEmMemoria implements ConsultaRepositorio {
   }
 }
 
+export class RegistrosEmMemoria implements RegistroRepositorio {
+  itens = new Map<string, RegistroMedico>();
+  async buscarPorId(id: string) { return this.itens.get(id) ?? null; }
+  async criar(r: Omit<RegistroMedico, 'id'>) {
+    const registro = { id: novoId(), ...r };
+    this.itens.set(registro.id, registro);
+    return registro;
+  }
+  async listarPorAnimal(animalId: string) {
+    return [...this.itens.values()]
+      .filter((r) => r.animalId === animalId)
+      .sort((a, b) => a.criadoEm.getTime() - b.criadoEm.getTime());
+  }
+  ultimoAutor = new Map<string, { id: string; nome: string }>();
+  async corrigir(id: string, dados: DadosRegistro, proximaDose: string | null, autor: { id: string; nome: string }, quando: Date) {
+    const r = this.itens.get(id)!;
+    const quemEscreveu = this.ultimoAutor.get(id) ?? { id: r.autorId, nome: r.autorNome };
+    const atualizado: RegistroMedico = {
+      ...r,
+      dados,
+      proximaDose,
+      versao: r.versao + 1,
+      historico: [...r.historico, { dados: r.dados, autorId: quemEscreveu.id, autorNome: quemEscreveu.nome, alteradoEm: quando }],
+    };
+    this.ultimoAutor.set(id, autor);
+    this.itens.set(id, atualizado);
+    return atualizado;
+  }
+  async listarAtendimentos(inicio: Date, fim: Date) {
+    return [...this.itens.values()].filter((r) => r.tipo === 'atendimento' && r.criadoEm >= inicio && r.criadoEm < fim);
+  }
+}
+
 export class UsuariosEmMemoria implements UsuarioGateway {
   perfis = new Map<string, Perfil>();
+  ativos = new Map<string, boolean>();
+  emails = new Set<string>();
   async definirPerfil(uid: string, perfil: Perfil) { this.perfis.set(uid, perfil); }
+  async criarFuncionario(d: NovoFuncionario) {
+    if (this.emails.has(d.email)) throw new ErroNegocio('EMAIL_JA_CADASTRADO', 'existe');
+    this.emails.add(d.email);
+    const uid = novoId();
+    this.perfis.set(uid, d.perfil);
+    this.ativos.set(uid, true);
+    return uid;
+  }
+  async definirAtivo(uid: string, ativo: boolean) { this.ativos.set(uid, ativo); }
+  async buscarPerfil(uid: string) { return this.perfis.get(uid) ?? null; }
 }

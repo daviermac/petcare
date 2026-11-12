@@ -1,6 +1,6 @@
 {
   "name": "petcare-api",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "API do Pet Care (Firebase Cloud Functions em camadas)",
   "main": "lib/index.js",

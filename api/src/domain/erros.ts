@@ -13,7 +13,9 @@ export type CodigoErroNegocio =
   | 'NAO_ENCONTRADO'
   | 'SEM_PERMISSAO'
   | 'CPF_JA_CADASTRADO'
-  | 'CONSULTA_NAO_ATIVA';
+  | 'CONSULTA_NAO_ATIVA'
+  | 'EMAIL_JA_CADASTRADO'
+  | 'OPERACAO_INVALIDA';
 
 export class ErroNegocio extends Error {
   constructor(public readonly codigo: CodigoErroNegocio, mensagem: string) {
