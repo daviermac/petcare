@@ -56,7 +56,37 @@ O usuário precisa estar logado (o token do Firebase Auth vai junto automaticame
 | `remarcarConsulta` | atendente | `{ consultaId, data, horario }` | `{ id, data, horario }` | RF10 |
 | `registrarTokenNotificacao` | logado | `{ token }` (FCM) | `{ ok: true }` | RF19 |
 
-Função agendada: `lembretesDeConsulta` roda a cada 30 min e envia push para consultas nas próximas 24 h (RF19).
+### Prontuário
+
+| Função | Perfil | Entrada | Retorno | Requisito |
+|---|---|---|---|---|
+| `registrarAtendimento` | veterinário | `{ animalId, diagnostico, tratamento, motivo?, observacoes?, consultaId? }` | registro | RF14 |
+| `registrarPrescricao` | veterinário | `{ animalId, medicamento, dosagem, frequenciaHoras, duracaoDias, orientacoes? }` | registro + `horariosMedicacao[]` | RF15, RF21 |
+| `registrarVacina` | veterinário | `{ animalId, nome, dataAplicacao?, proximaDose?, lote? }` | registro | RF16, RF20 |
+| `registrarProcedimento` | auxiliar, veterinário | `{ animalId, descricao, observacoes? }` | registro | RF26 |
+| `historicoDoAnimal` | veterinário, tutor dono | `{ animalId }` | `{ animal, registros[] }` (ordem cronológica) | RF13, RF22 |
+| `corrigirRegistro` | mesmo perfil que pode registrar | `{ registroId, ...todos os campos do tipo }` | registro com `versao` e `historico` | RNF16 |
+
+- Com `consultaId`, o atendimento marca a consulta como **realizada**.
+- `horariosMedicacao` são os horários das doses (ISO 8601). O app agenda lembretes locais com `flutter_local_notifications` (RF21). Ex.: 8 em 8 h por 3 dias = 9 horários.
+- Registros **nunca são excluídos**. A correção guarda a versão anterior com autor e data (RNF16).
+
+### Clínica e gestão
+
+| Função | Perfil | Entrada | Retorno | Requisito |
+|---|---|---|---|---|
+| `agendaDoDia` | atendente, veterinário, auxiliar, gestor | `{ data, incluirCanceladas? }` | `{ consultas: [{ consultaId, horario, status, animal, tutorNome, local }] }` | RF08, RF25 |
+| `relatorioAtendimentos` | gestor | `{ inicio, fim }` | `{ total, porVeterinario[] }` | RF33, RF35 |
+| `criarFuncionario` | gestor | `{ nome, email, senha, perfil }` | `{ uid, perfil }` | RF32 |
+| `definirStatusFuncionario` | gestor | `{ uid, ativo }` | `{ ok: true }` | RF32 |
+
+- Funcionário desativado não consegue logar (`USER_DISABLED`) e perde o acesso à API na hora.
+- **Primeiro gestor:** como só gestor cria funcionário, o primeiro precisa receber o perfil manualmente. No emulador, use a aba Authentication da interface (http://localhost:4000) → editar usuário → *Custom claims* `{"perfil":"gestor"}`. Em produção, rode uma vez um script com o Admin SDK (`setCustomUserClaims(uid, { perfil: 'gestor' })`).
+
+### Funções agendadas
+
+- `lembretesDeConsulta`: a cada 30 min, push para consultas nas próximas 24 h (RF19).
+- `lembretesDeVacina`: todo dia às 9h, push para vacinas com próxima dose daqui a 7 dias (RF20).
 
 ## Leituras direto no Firestore
 
@@ -78,5 +108,10 @@ db.collection('consultas').where('tutorId', isEqualTo: uid).orderBy('inicio');
 | `animais/{id}` | `tutorId`, `nome`, `especie`, `raca`, `idade`, `criadoEm` |
 | `consultas/{id}` | `tutorId`, `animalId`, `animalNome`, `data`, `horario`, `inicio`, `local`, `status`, `lembreteEnviado`, `criadoEm`, `canceladoEm?`, `canceladoPor?` |
 | `horariosOcupados/{AAAA-MM-DD_HHmm}` | `data`, `horario`, `consultaId` (trava do horário) |
+| `registrosMedicos/{id}` | `tipo` (atendimento, prescricao, vacina, procedimento), `animalId`, `tutorId`, `autorId`, `autorNome`, `autorPerfil`, `dados`, `proximaDose`, `criadoEm`, `versao`, `historico[]` |
+
+`consultas.status` agora pode ser `agendada`, `cancelada` ou `realizada`.
+
+**Relação com o diagrama de classes:** `Usuario` = `usuarios` + `tutores` (dados do tutor), `Pet` = `animais`, `Consulta` = `consultas`. Os registros médicos ficam em `registrosMedicos`, ligados ao animal.
 
 Grade de horários (igual ao protótipo): 08:00, 09:30, 11:00, 14:00, 15:30, de segunda a sexta, até 60 dias à frente.

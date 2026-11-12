@@ -5,7 +5,8 @@ import { gerarOpenApi, NOMES_OPERACOES } from '../src/presentation/openapi';
 describe('OpenAPI (Swagger)', () => {
   it('documenta exatamente as Callable Functions exportadas', () => {
     const fonte = readFileSync(join(__dirname, '../src/presentation/callables.ts'), 'utf8');
-    const callables = [...fonte.matchAll(/export const (\w+) = onCall\(/g)].map((m) => m[1]);
+    const callables = [...fonte.matchAll(/export const (\w+) = (?:onCall|registrar)\(/g)].map((m) => m[1]);
+    expect(callables.length).toBeGreaterThan(10);
     expect([...NOMES_OPERACOES].sort()).toEqual(callables.sort());
   });
 

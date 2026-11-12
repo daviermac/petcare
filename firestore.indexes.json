@@ -4,16 +4,56 @@
       "collectionGroup": "consultas",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "tutorId", "order": "ASCENDING" },
-        { "fieldPath": "inicio", "order": "ASCENDING" }
+        {
+          "fieldPath": "tutorId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "inicio",
+          "order": "ASCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "consultas",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "status", "order": "ASCENDING" },
-        { "fieldPath": "inicio", "order": "ASCENDING" }
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "inicio",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "registrosMedicos",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "animalId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "criadoEm",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "registrosMedicos",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "tipo",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "criadoEm",
+          "order": "ASCENDING"
+        }
       ]
     }
   ],
