@@ -39,19 +39,43 @@ petcare/
 └── firebase.json      # Configuração do Firebase e dos emuladores
 ```
 
-## Como rodar a API localmente
+## Como rodar (tudo local, com os emuladores do Firebase)
 
-Pré-requisitos: Node.js 22, Java 11+ (para os emuladores) e Firebase CLI (`npm i -g firebase-tools`).
+O projeto não tem ambiente de produção: a apresentação roda nos emuladores do Firebase (projeto `demo-petcare`), sem precisar de conta, cartão ou projeto no console.
+
+**Pré-requisitos (uma vez):** Node.js 22, Java 11 ou mais novo (o emulador do Firestore usa Java) e a Firebase CLI:
+
+```bash
+npm install -g firebase-tools
+cd api
+npm install
+```
+
+**Terminal 1 — subir os emuladores com a API:**
 
 ```bash
 cd api
-npm install
-npm test            # testes unitários
-cd ..
-firebase emulators:start   # Auth, Firestore, Functions e Storage locais
+npm run emuladores
 ```
 
-A interface dos emuladores fica em http://localhost:4000 e o **Swagger da API** em http://127.0.0.1:5001/demo-petcare/southamerica-east1/docs.
+**Terminal 2 — criar os dados de exemplo** (contas, animais, consultas e prontuário):
+
+```bash
+cd api
+npm run seed
+```
+
+O `seed` **apaga tudo** e recria os dados, então serve também para "resetar" antes da apresentação. As contas criadas (senha `Pet@1234`) estão em `app/README.md`.
+
+| O quê | Endereço |
+|---|---|
+| Interface dos emuladores (dados, usuários, logs) | http://localhost:4000 |
+| Swagger da API (funciona sem internet) | http://localhost:5001/demo-petcare/southamerica-east1/docs |
+| Disparar lembretes na hora (demo) | http://localhost:5001/demo-petcare/southamerica-east1/dispararLembretes |
+
+- Ao fechar os emuladores com **Ctrl+C**, os dados são salvos na pasta `.emulador/` e voltam na próxima execução. Se algo der errado, rode `npm run seed` de novo.
+- **Celular físico:** os emuladores aceitam conexões da rede. Rode o app com o IP do notebook (`--dart-define=EMULADOR_HOST=192.168.x.x`). Na primeira vez, o Windows pergunta se libera o Java e o Node no firewall: permita em rede privada.
+- Testes da API: `cd api && npm test`.
 
 ## Fluxo de trabalho com Git
 

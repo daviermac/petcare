@@ -20,6 +20,7 @@ export const COLECOES = {
   consultas: 'consultas',
   horariosOcupados: 'horariosOcupados',
   registrosMedicos: 'registrosMedicos',
+  notificacoes: 'notificacoes',
 } as const;
 
 /** Converte Timestamps do Firestore em Date (inclusive dentro de listas e objetos). */

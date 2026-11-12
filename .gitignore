@@ -5,6 +5,7 @@ coverage/
 *.log
 
 # Firebase
+.emulador/
 .firebase/
 firebase-debug.log*
 firestore-debug.log*

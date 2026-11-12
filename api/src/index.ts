@@ -25,6 +25,6 @@ export {
   registrarTokenNotificacao,
 } from './presentation/callables';
 
-export { lembretesDeConsulta, lembretesDeVacina } from './presentation/agendadas';
+export { lembretesDeConsulta, lembretesDeVacina, dispararLembretes } from './presentation/agendadas';
 
 export { docs } from './presentation/docs';
