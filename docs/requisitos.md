@@ -19,8 +19,8 @@ Lista completa no documento "Check-up do Pet Care" (37 RF, 16 RNF, 13 RT). Aqui 
 | RF15 Prescrições | Essencial | ✅ `registrarPrescricao` |
 | RF16 Vacinas | Essencial | ✅ `registrarVacina` |
 | RF17 Anexar exames | Essencial/Desejável | 🟨 `storage.rules` prontas |
-| RF19 Lembrete de consulta | Essencial | ✅ `lembretesDeConsulta` |
-| RF20 Lembrete de vacina | Essencial | ✅ `lembretesDeVacina` |
+| RF19 Lembrete de consulta | Essencial | ✅ `lembretesDeConsulta` + coleção `notificacoes` (demo: `dispararLembretes`) |
+| RF20 Lembrete de vacina | Essencial | ✅ `lembretesDeVacina` + coleção `notificacoes` |
 | RF21 Lembrete de medicamento | Desejável | 🟨 API devolve os horários; app agenda localmente |
 | RF22 Tutor vê receitas | Desejável | ✅ `historicoDoAnimal` + regras |
 | RF24 Tarefas do dia (auxiliar) | Essencial | ⬜ |

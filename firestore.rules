@@ -67,6 +67,15 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // Notificações do tutor (lembretes de consulta e vacina). O app pode marcar como lida.
+    match /notificacoes/{notificacaoId} {
+      allow read: if dono(resource.data.tutorId);
+      allow update: if dono(resource.data.tutorId)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lida'])
+        && request.resource.data.lida is bool;
+      allow create, delete: if false;
+    }
+
     // Todo o resto (estoque, financeiro...) fica bloqueado até ser modelado
     match /{document=**} {
       allow read, write: if false;

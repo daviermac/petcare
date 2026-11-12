@@ -81,12 +81,14 @@ O usuário precisa estar logado (o token do Firebase Auth vai junto automaticame
 | `definirStatusFuncionario` | gestor | `{ uid, ativo }` | `{ ok: true }` | RF32 |
 
 - Funcionário desativado não consegue logar (`USER_DISABLED`) e perde o acesso à API na hora.
-- **Primeiro gestor:** como só gestor cria funcionário, o primeiro precisa receber o perfil manualmente. No emulador, use a aba Authentication da interface (http://localhost:4000) → editar usuário → *Custom claims* `{"perfil":"gestor"}`. Em produção, rode uma vez um script com o Admin SDK (`setCustomUserClaims(uid, { perfil: 'gestor' })`).
+- **Primeiro gestor:** o `npm run seed` já cria `gestor@petconnect.dev` (senha `Pet@1234`). Para criar outro manualmente, use a aba Authentication da interface dos emuladores (http://localhost:4000) → editar usuário → *Custom claims* `{"perfil":"gestor"}`.
 
-### Funções agendadas
+### Lembretes (RF19, RF20)
 
-- `lembretesDeConsulta`: a cada 30 min, push para consultas nas próximas 24 h (RF19).
-- `lembretesDeVacina`: todo dia às 9h, push para vacinas com próxima dose daqui a 7 dias (RF20).
+- `lembretesDeConsulta`: a cada 30 min, avisa das consultas nas próximas 24 h.
+- `lembretesDeVacina`: todo dia às 9h, avisa das vacinas com próxima dose daqui a 7 dias.
+- Cada lembrete é gravado em `notificacoes` (o app escuta e mostra notificação local). Fora do emulador também iria por push (FCM).
+- **No emulador** as funções agendadas não rodam sozinhas. Para a apresentação, abra `GET /dispararLembretes` (só existe no emulador). Parâmetros opcionais: `janelaHoras` (padrão 24) e `diasVacina` (padrão 7). Ex.: `/dispararLembretes?janelaHoras=72`. Cada lembrete só é gerado uma vez.
 
 ## Leituras direto no Firestore
 
@@ -108,6 +110,7 @@ db.collection('consultas').where('tutorId', isEqualTo: uid).orderBy('inicio');
 | `animais/{id}` | `tutorId`, `nome`, `especie`, `raca`, `idade`, `criadoEm` |
 | `consultas/{id}` | `tutorId`, `animalId`, `animalNome`, `data`, `horario`, `inicio`, `local`, `status`, `lembreteEnviado`, `criadoEm`, `canceladoEm?`, `canceladoPor?` |
 | `horariosOcupados/{AAAA-MM-DD_HHmm}` | `data`, `horario`, `consultaId` (trava do horário) |
+| `notificacoes/{id}` | `tutorId`, `tipo` (consulta, vacina), `titulo`, `corpo`, `dados`, `lida`, `criadoEm` (o tutor lê as dele e só pode alterar `lida`) |
 | `registrosMedicos/{id}` | `tipo` (atendimento, prescricao, vacina, procedimento), `animalId`, `tutorId`, `autorId`, `autorNome`, `autorPerfil`, `dados`, `proximaDose`, `criadoEm`, `versao`, `historico[]` |
 
 `consultas.status` agora pode ser `agendada`, `cancelada` ou `realizada`.
