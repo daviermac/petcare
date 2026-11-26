@@ -175,10 +175,50 @@ final res = await functions.httpsCallable('agendarConsulta').call({
 
 Erros chegam como `FirebaseFunctionsException`. Em `invalid-argument`, `e.details['campos']` traz uma mensagem por campo. Contrato completo: `../docs/api.md` ou o Swagger, com os emuladores rodando: http://localhost:5001/demo-petcare/southamerica-east1/docs
 
-## O que ainda não foi feito
+## Funcionalidades do projeto
 
-- Telas dos perfis de equipe (agenda da clínica, prontuário, relatórios, gestão de funcionários).
-- Lembretes de medicamento no aparelho (RF21) e notificações locais com `flutter_local_notifications`.
-- Anexo de exames (RF17, `firebase_storage`).
-- Testes automatizados de widget e de integração (RT11).
-- Testes em iPhone/simulador iOS e em celular físico.
+### Perfil Atendente
+
+- **Agenda de atendimentos:** visualização das consultas conforme a data selecionada.
+- **Remarcação de consultas:** possibilidade de remarcar atendimentos utilizando os horários disponíveis retornados pela API.
+- **Anexo de exames (RF17):** envio de arquivos PDF, JPG, JPEG e PNG para o Firebase Storage, com limite de 10 MB por arquivo.
+- **Visualização de exames:** listagem dos exames anexados por animal e abertura dos arquivos enviados.
+
+### Perfil Auxiliar
+
+- **Animais do dia (RF25):** visualização dos animais e atendimentos agendados para a data selecionada.
+- **Checklist de tarefas (RF24):** lista de tarefas diárias com marcação de conclusão, contador de tarefas realizadas e barra de progresso.
+- **Registro de procedimentos (RF26):** cadastro de procedimentos realizados, com descrição e observações, integrado à API.
+
+### Notificações de medicamentos (RF21)
+
+- Serviço de notificações locais utilizando `flutter_local_notifications`.
+- Configuração do fuso horário de São Paulo.
+- Configuração das permissões necessárias para notificações e alarmes no Android.
+- Agendamento de lembretes conforme os horários de medicação retornados pela API.
+- Cancelamento dos lembretes de uma prescrição.
+
+### Tecnologias e integrações
+
+- **Firebase Storage:** armazenamento dos exames anexados.
+- **File Picker:** seleção de arquivos no dispositivo.
+- **Flutter Local Notifications:** geração de notificações locais.
+- **Timezone:** configuração do fuso horário das notificações.
+- **URL Launcher:** abertura dos arquivos anexados.
+- **Firebase Authentication, Firestore e Cloud Functions:** integração com os emuladores do Firebase.
+
+### Observações
+
+- O checklist de tarefas (RF24) mantém as marcações em memória durante o uso da tela, sem persistência no Firebase.
+- O serviço de notificações de medicamentos (RF21) está implementado, mas ainda precisa ser integrado à tela de cadastro de prescrição do perfil Veterinário.
+- O envio e a visualização de exames (RF17) foram testados com sucesso no Firebase Storage Emulator.
+
+### O que ainda falta fazer
+
+- **Perfil Veterinário:** finalizar a tela e implementar prontuário, atendimento veterinário, cadastro de prescrições e registro de vacinas.
+- **RF21:** integrar o serviço `PrescricaoMedicacaoService.registrar()` à tela de cadastro de prescrição e testar os lembretes no aparelho.
+- **Perfil Gestor:** finalizar a tela e implementar gerenciamento de funcionários e relatórios administrativos.
+- **RF30 e RF31:** implementar e testar os requisitos conforme descritos em `docs/requisitos.md`.
+- **RF24:** implementar a persistência das tarefas do checklist no Firebase, caso seja exigida pelo requisito.
+- **Testes automatizados:** desenvolver testes de widget e de integração (RT11).
+- **Testes em dispositivos:** realizar testes em iPhone/simulador iOS e em celular físico.
