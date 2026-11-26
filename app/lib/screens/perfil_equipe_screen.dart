@@ -3,15 +3,26 @@ import 'package:flutter/material.dart';
 
 import '../core/tema.dart';
 import '../widgets/componentes.dart';
+import 'atendente_screen.dart';
+import 'auxiliar_screen.dart';
 
-/// Perfis da equipe (atendente, veterinário, auxiliar, gestor) ainda não têm telas.
 class PerfilEquipeScreen extends StatelessWidget {
   final String perfil;
+
   const PerfilEquipeScreen({super.key, required this.perfil});
 
   @override
   Widget build(BuildContext context) {
+    if (perfil == 'atendente') {
+      return const AtendenteScreen();
+    }
+
+    if (perfil == 'auxiliar') {
+      return const AuxiliarScreen();
+    }
+
     final email = FirebaseAuth.instance.currentUser?.email ?? '';
+
     return Scaffold(
       body: SafeArea(
         child: Padding(
@@ -26,8 +37,7 @@ class PerfilEquipeScreen extends StatelessWidget {
               Text(email, style: Estilos.suave),
               const SizedBox(height: 16),
               const Text(
-                'As telas deste perfil ainda estão em desenvolvimento. '
-                'Por enquanto, o app está completo para o perfil Tutor.',
+                'As telas deste perfil ainda estão em desenvolvimento.',
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 24),
