@@ -1,5 +1,7 @@
 import '../core/firebase_setup.dart';
+import '../models/financeiro.dart';
 import '../models/item_agenda.dart';
+import '../models/registro_medico.dart';
 
 class HorarioDisponivel {
   final String horario;
@@ -122,6 +124,129 @@ class Api {
       'descricao': descricao,
       if (observacoes != null && observacoes.trim().isNotEmpty)
         'observacoes': observacoes.trim(),
+    });
+  }
+
+  // ------------------------------------------------------------ Prontuário
+
+  /// RF13 - Histórico médico do animal (veterinário ou tutor dono).
+  static Future<HistoricoAnimal> historicoDoAnimal(String animalId) async {
+    final r = await _chamar('historicoDoAnimal', {'animalId': animalId});
+    return HistoricoAnimal.fromMap(r);
+  }
+
+  /// RF14/RF30 - Registrar atendimento. Com [consultaId], a consulta fica "realizada".
+  /// Gera a cobrança do atendimento ([valor] em reais; vazio = valor padrão).
+  static Future<Map<String, dynamic>> registrarAtendimento({
+    required String animalId,
+    String? consultaId,
+    String motivo = '',
+    required String diagnostico,
+    required String tratamento,
+    String observacoes = '',
+    double? valor,
+  }) {
+    return _chamar('registrarAtendimento', {
+      'animalId': animalId,
+      if (consultaId != null && consultaId.isNotEmpty) 'consultaId': consultaId,
+      'motivo': motivo,
+      'diagnostico': diagnostico,
+      'tratamento': tratamento,
+      'observacoes': observacoes,
+      'valor': ?valor,
+    });
+  }
+
+  /// RF16 - Registrar vacina (com próxima dose para o lembrete, RF20).
+  static Future<Map<String, dynamic>> registrarVacina({
+    required String animalId,
+    required String nome,
+    String? dataAplicacao,
+    String? proximaDose,
+    String lote = '',
+  }) {
+    return _chamar('registrarVacina', {
+      'animalId': animalId,
+      'nome': nome,
+      'dataAplicacao': ?dataAplicacao,
+      'proximaDose': ?proximaDose,
+      'lote': lote,
+    });
+  }
+
+  // ------------------------------------------------------------ Gestão
+
+  /// RF32 - Criar login de funcionário.
+  static Future<void> criarFuncionario({
+    required String nome,
+    required String email,
+    required String senha,
+    required String perfil,
+  }) async {
+    await _chamar('criarFuncionario', {
+      'nome': nome,
+      'email': email,
+      'senha': senha,
+      'perfil': perfil,
+    });
+  }
+
+  /// RF32 - Ativar ou desativar funcionário.
+  static Future<void> definirStatusFuncionario(String uid, bool ativo) async {
+    await _chamar('definirStatusFuncionario', {'uid': uid, 'ativo': ativo});
+  }
+
+  /// RF33/RF35 - Atendimentos no período, por veterinário.
+  static Future<RelatorioAtendimentos> relatorioAtendimentos(
+    String inicio,
+    String fim,
+  ) async {
+    final r = await _chamar('relatorioAtendimentos', {
+      'inicio': inicio,
+      'fim': fim,
+    });
+    return RelatorioAtendimentos.fromMap(r);
+  }
+
+  // ------------------------------------------------------------ Financeiro
+
+  /// RF31 - Relatório financeiro do período.
+  static Future<RelatorioFinanceiro> relatorioFinanceiro(
+    String inicio,
+    String fim,
+  ) async {
+    final r = await _chamar('relatorioFinanceiro', {
+      'inicio': inicio,
+      'fim': fim,
+    });
+    return RelatorioFinanceiro.fromMap(r);
+  }
+
+  /// RF30 - Cobranças do período (status opcional: pendente | paga).
+  static Future<List<Fatura>> listarFaturas(
+    String inicio,
+    String fim, {
+    String? status,
+  }) async {
+    final r = await _chamar('listarFaturas', {
+      'inicio': inicio,
+      'fim': fim,
+      'status': ?status,
+    });
+    final lista = (r['faturas'] as List?) ?? const [];
+    return lista
+        .map((e) => Fatura.fromMap(Map<String, dynamic>.from(e as Map)))
+        .toList();
+  }
+
+  /// RF30 - Registrar pagamento de uma cobrança.
+  static Future<void> registrarPagamento(
+    String faturaId,
+    String formaPagamento,
+  ) async {
+    await _chamar('registrarPagamento', {
+      'faturaId': faturaId,
+      'formaPagamento': formaPagamento,
     });
   }
 }

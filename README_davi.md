@@ -43,7 +43,7 @@ petcare/
 
 O projeto não tem ambiente de produção: a apresentação roda nos emuladores do Firebase (projeto `demo-petcare`), sem precisar de conta, cartão ou projeto no console.
 
-**Pré-requisitos (uma vez):** Node.js 22, Java 11 ou mais novo (o emulador do Firestore usa Java) e a Firebase CLI:
+**Pré-requisitos (uma vez):** Node.js 22, Java 21 ou mais novo (o emulador do Firestore usa Java; a Firebase CLI atual exige o 21) e a Firebase CLI:
 
 ```bash
 npm install -g firebase-tools
@@ -75,7 +75,9 @@ O `seed` **apaga tudo** e recria os dados, então serve também para "resetar" a
 
 - Ao fechar os emuladores com **Ctrl+C**, os dados são salvos na pasta `.emulador/` e voltam na próxima execução. Se algo der errado, rode `npm run seed` de novo.
 - **Celular físico:** os emuladores aceitam conexões da rede. Rode o app com o IP do notebook (`--dart-define=EMULADOR_HOST=192.168.x.x`). Na primeira vez, o Windows pergunta se libera o Java e o Node no firewall: permita em rede privada.
-- Testes da API: `cd api && npm test`.
+- Testes da API: `cd api && npm test` (unidade) e `npm run test:integracao` (com os emuladores rodando e o seed feito).
+- Testes do app: `cd app && flutter test` (unidade e widget) e `flutter test integration_test` (num emulador/celular, com os emuladores rodando).
+- Roteiro de testes em iPhone/simulador iOS e celular físico: `docs/testes-dispositivos.md`.
 
 ## Fluxo de trabalho com Git
 

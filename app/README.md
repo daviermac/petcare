@@ -102,3 +102,22 @@ Depois de `npm run seed` (pasta `api/`), todas com a senha `Pet@1234`:
 | Tutor | ana@email.dev (Thor e Mia) / bruno@email.dev (Apolo) |
 
 O perfil do usuário logado está no token: `(await user.getIdTokenResult()).claims?['perfil']`. Use para decidir quais telas mostrar.
+
+## Telas por perfil
+
+| Perfil | Tela | Requisitos |
+|---|---|---|
+| Tutor | `tutor_shell.dart` | RF04, RF06–RF11, RF19, RF20 |
+| Atendente | `atendente_screen.dart` | RF08, RF10, RF11, RF17 |
+| Veterinário | `veterinario_screen.dart` → `prontuario_screen.dart` → `formularios_veterinario.dart` | RF08, RF13–RF16, RF21, RF30 (valor do atendimento) |
+| Auxiliar | `auxiliar_screen.dart` (checklist salvo em `tarefasDia`) | RF24, RF25, RF26 |
+| Gestor | `gestor_screen.dart` (Equipe, Relatórios, Cobranças) | RF30–RF33, RF35 |
+
+## Testes
+
+```bash
+flutter test                      # unidade + widget (não precisa de Firebase)
+flutter test integration_test     # app real contra os emuladores (rode antes: npm run emuladores e npm run seed)
+```
+
+Roteiro manual para iPhone/simulador iOS e celular físico: `../docs/testes-dispositivos.md`.

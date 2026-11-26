@@ -13,6 +13,7 @@ import { initializeApp } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore } from 'firebase-admin/firestore';
 import { AgendamentoServico } from '../application/agendamento-servico';
+import { FaturamentoServico } from '../application/faturamento-servico';
 import { Solicitante } from '../application/portas';
 import { ProntuarioServico } from '../application/prontuario-servico';
 import { TutorServico } from '../application/tutor-servico';
@@ -22,6 +23,7 @@ import {
   FirebaseUsuarioGateway,
   FirestoreAnimalRepositorio,
   FirestoreConsultaRepositorio,
+  FirestoreFaturaRepositorio,
   FirestoreRegistroRepositorio,
   FirestoreTutorRepositorio,
 } from '../infrastructure/firestore';
@@ -91,6 +93,7 @@ async function main(): Promise<void> {
   const tutorServico = new TutorServico(tutores, animais, usuarios);
   const agenda = new AgendamentoServico(consultas, animais);
   const prontuario = new ProntuarioServico(registros, animais, consultas);
+  const financeiro = new FaturamentoServico(new FirestoreFaturaRepositorio(db), animais, tutores);
 
   // Equipe
   const equipe: Record<string, Solicitante> = {};
@@ -101,6 +104,7 @@ async function main(): Promise<void> {
   const vet = equipe['vet@petconnect.dev'];
   const vet2 = equipe['vet2@petconnect.dev'];
   const aux = equipe['auxiliar@petconnect.dev'];
+  const atendente = equipe['atendente@petconnect.dev'];
 
   // Tutores (mesmo fluxo do app: conta no Auth + registrarTutor)
   const tut: Solicitante[] = [];
@@ -128,6 +132,9 @@ async function main(): Promise<void> {
     animalId: thor.id, consultaId: consultaPassada.id, motivo: 'Coceira na orelha',
     diagnostico: 'Otite', tratamento: 'Limpeza e gotas otológicas por 7 dias',
   });
+  // Cobrança do atendimento (RF30), já paga no Pix
+  const faturaThor = await financeiro.faturarAtendimento(atendimento, 180);
+  await financeiro.registrarPagamento(atendente, { faturaId: faturaThor.id, formaPagamento: 'pix' });
   // Correção para mostrar o histórico de versões (RNF16)
   await prontuario.corrigir(vet, atendimento.id, {
     motivo: 'Coceira na orelha', diagnostico: 'Otite externa bilateral',
@@ -141,7 +148,10 @@ async function main(): Promise<void> {
   await prontuario.registrar(vet, 'vacina', { animalId: thor.id, nome: 'V10', proximaDose: somarDias(hoje, 7), lote: 'L2026-118' });
   await prontuario.registrar(aux, 'procedimento', { animalId: thor.id, descricao: 'Banho e tosa', observacoes: 'Pele sem lesões.' });
   await prontuario.registrar(vet2, 'vacina', { animalId: mia.id, nome: 'Antirrábica', proximaDose: somarDias(hoje, 365) });
-  await prontuario.registrar(vet2, 'atendimento', { animalId: apolo.id, diagnostico: 'Check-up sem alterações', tratamento: 'Nenhum' });
+  const checkup = await prontuario.registrar(vet2, 'atendimento', {
+    animalId: apolo.id, motivo: 'Check-up anual', diagnostico: 'Check-up sem alterações', tratamento: 'Nenhum',
+  });
+  await financeiro.faturarAtendimento(checkup); // valor padrão, fica pendente para a demo de recebimento
 
   // Consultas futuras
   const d1 = diaUtil(hoje, 1);
@@ -156,6 +166,7 @@ async function main(): Promise<void> {
     ...TUTORES.map((t) => ({ perfil: 'tutor', nome: t.nome, email: t.email })),
   ]);
   console.log(`Animais: Thor e Mia (Ana), Apolo (Bruno). Consultas em ${d1} e ${d2}; uma já realizada em ${passada}.`);
+  console.log('Financeiro: 1 cobrança paga (Thor, R$ 180,00 no Pix) e 1 pendente (Apolo, R$ 150,00).');
 }
 
 main()

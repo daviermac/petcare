@@ -47,3 +47,29 @@ String inicialDe(String texto) {
   final t = texto.trim();
   return t.isEmpty ? '?' : t[0].toUpperCase();
 }
+
+/// 15000 (centavos) -> "R\$ 150,00"; 123456789 -> "R\$ 1.234.567,89"
+String moeda(int centavos) {
+  final negativo = centavos < 0;
+  final abs = centavos.abs();
+  final reais = (abs ~/ 100).toString();
+  final cent = _dois(abs % 100);
+  final grupos = <String>[];
+  for (var i = reais.length; i > 0; i -= 3) {
+    grupos.insert(0, reais.substring(i - 3 < 0 ? 0 : i - 3, i));
+  }
+  return '${negativo ? '-' : ''}R\$ ${grupos.join('.')},$cent';
+}
+
+/// DateTime -> "16/11/2026 14:05" (no fuso do aparelho).
+String dataHoraBr(DateTime d) {
+  final l = d.toLocal();
+  return '${_dois(l.day)}/${_dois(l.month)}/${l.year} ${horaTexto(l)}';
+}
+
+/// Primeiro e último dia do mês de [d], no formato da API.
+(String, String) mesDe(DateTime d) {
+  final inicio = DateTime(d.year, d.month, 1);
+  final fim = DateTime(d.year, d.month + 1, 0);
+  return (dataIso(inicio), dataIso(fim));
+}

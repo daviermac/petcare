@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 
 import '../models/item_agenda.dart';
 import '../services/api.dart';
+import '../services/tarefas.dart';
+import '../widgets/checklist_tarefas.dart';
 
 class AuxiliarScreen extends StatefulWidget {
   const AuxiliarScreen({super.key});
@@ -15,19 +17,15 @@ class _AuxiliarScreenState extends State<AuxiliarScreen> {
   DateTime _dataSelecionada = DateTime.now();
   late Future<List<ItemAgenda>> _agendaFuture;
 
-  final List<String> _tarefas = [
-    'Preparar o ambiente de atendimento',
-    'Conferir os materiais necessários',
-    'Organizar os materiais após os atendimentos',
-    'Verificar se o ambiente está limpo e organizado',
-  ];
-
-  final Set<String> _tarefasConcluidas = {};
+  /// Checklist do dia salvo no Firestore (RF24): `tarefasDia/{AAAA-MM-DD}`.
+  late Stream<Set<String>> _concluidas;
+  bool _salvando = false;
 
   @override
   void initState() {
     super.initState();
     _agendaFuture = Api.agendaDoDia(_dataIso(_dataSelecionada));
+    _concluidas = TarefasService.concluidas(_dataIso(_dataSelecionada));
   }
 
   String _dataIso(DateTime data) {
@@ -63,19 +61,36 @@ class _AuxiliarScreenState extends State<AuxiliarScreen> {
 
     setState(() {
       _dataSelecionada = data;
-      _tarefasConcluidas.clear();
+      _concluidas = TarefasService.concluidas(_dataIso(data));
       _agendaFuture = Api.agendaDoDia(_dataIso(data));
     });
   }
 
-  void _alternarTarefa(String tarefa, bool? concluida) {
-    setState(() {
-      if (concluida == true) {
-        _tarefasConcluidas.add(tarefa);
-      } else {
-        _tarefasConcluidas.remove(tarefa);
-      }
-    });
+  Future<void> _alternarTarefa(
+    Set<String> atuais,
+    Tarefa tarefa,
+    bool concluida,
+  ) async {
+    final novas = {...atuais};
+    if (concluida) {
+      novas.add(tarefa.id);
+    } else {
+      novas.remove(tarefa.id);
+    }
+    setState(() => _salvando = true);
+    try {
+      await TarefasService.salvar(_dataIso(_dataSelecionada), novas);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Não foi possível salvar a tarefa: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _salvando = false);
+    }
   }
 
   Future<void> _registrarProcedimento(ItemAgenda consulta) async {
@@ -197,68 +212,19 @@ class _AuxiliarScreenState extends State<AuxiliarScreen> {
   }
 
   Widget _construirTarefas() {
-    final concluidas = _tarefasConcluidas.length;
-    final total = _tarefas.length;
-
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                const Icon(Icons.checklist, size: 26),
-                const SizedBox(width: 10),
-                const Expanded(
-                  child: Text(
-                    'Tarefas do dia',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                  ),
-                ),
-                Text(
-                  '$concluidas/$total',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: Colors.blue,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            LinearProgressIndicator(value: total == 0 ? 0 : concluidas / total),
-            const SizedBox(height: 12),
-            ..._tarefas.map((tarefa) {
-              return CheckboxListTile(
-                contentPadding: EdgeInsets.zero,
-                controlAffinity: ListTileControlAffinity.leading,
-                title: Text(tarefa),
-                value: _tarefasConcluidas.contains(tarefa),
-                onChanged: (valor) => _alternarTarefa(tarefa, valor),
-              );
-            }),
-            if (concluidas == total)
-              const Padding(
-                padding: EdgeInsets.only(top: 8),
-                child: Row(
-                  children: [
-                    Icon(Icons.check_circle, color: Colors.green),
-                    SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'Todas as tarefas foram concluídas!',
-                        style: TextStyle(
-                          color: Colors.green,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-          ],
-        ),
-      ),
+    return StreamBuilder<Set<String>>(
+      stream: _concluidas,
+      builder: (context, snapshot) {
+        final concluidas = snapshot.data ?? const <String>{};
+        return ChecklistTarefas(
+          tarefas: tarefasPadrao,
+          concluidas: concluidas,
+          salvando: _salvando || !snapshot.hasData && !snapshot.hasError,
+          aoAlternar: snapshot.hasData
+              ? (t, v) => _alternarTarefa(concluidas, t, v)
+              : null,
+        );
+      },
     );
   }
 

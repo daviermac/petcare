@@ -60,7 +60,7 @@ O usuário precisa estar logado (o token do Firebase Auth vai junto automaticame
 
 | Função | Perfil | Entrada | Retorno | Requisito |
 |---|---|---|---|---|
-| `registrarAtendimento` | veterinário | `{ animalId, diagnostico, tratamento, motivo?, observacoes?, consultaId? }` | registro | RF14 |
+| `registrarAtendimento` | veterinário | `{ animalId, diagnostico, tratamento, motivo?, observacoes?, consultaId?, valor? }` | registro + `faturaId`, `valorCentavos` | RF14, RF30 |
 | `registrarPrescricao` | veterinário | `{ animalId, medicamento, dosagem, frequenciaHoras, duracaoDias, orientacoes? }` | registro + `horariosMedicacao[]` | RF15, RF21 |
 | `registrarVacina` | veterinário | `{ animalId, nome, dataAplicacao?, proximaDose?, lote? }` | registro | RF16, RF20 |
 | `registrarProcedimento` | auxiliar, veterinário | `{ animalId, descricao, observacoes? }` | registro | RF26 |
@@ -79,6 +79,18 @@ O usuário precisa estar logado (o token do Firebase Auth vai junto automaticame
 | `relatorioAtendimentos` | gestor | `{ inicio, fim }` | `{ total, porVeterinario[] }` | RF33, RF35 |
 | `criarFuncionario` | gestor | `{ nome, email, senha, perfil }` | `{ uid, perfil }` | RF32 |
 | `definirStatusFuncionario` | gestor | `{ uid, ativo }` | `{ ok: true }` | RF32 |
+
+### Financeiro
+
+| Função | Perfil | Entrada | Retorno | Requisito |
+|---|---|---|---|---|
+| `listarFaturas` | atendente, gestor | `{ inicio, fim, status? }` | `{ faturas[] }` (mais recentes primeiro) | RF30 |
+| `registrarPagamento` | atendente, gestor | `{ faturaId, formaPagamento }` | fatura paga | RF30 |
+| `relatorioFinanceiro` | gestor | `{ inicio, fim }` | `{ quantidade, faturadoCentavos, recebidoCentavos, pendenteCentavos, ticketMedioCentavos, porFormaPagamento[], porVeterinario[], porDia[] }` | RF31 |
+
+- Cada atendimento gera **uma cobrança pendente** (coleção `faturas`). O requisito não fixa o preço: o padrão é **R$ 150,00** (`VALOR_CONSULTA_PADRAO_CENTAVOS` em `api/src/domain/financeiro.ts`) e o veterinário pode informar outro `valor` (em reais) no atendimento.
+- Valores sempre em **centavos** (inteiro). Formas de pagamento: `dinheiro`, `pix`, `cartao_debito`, `cartao_credito`.
+- O pagamento usa transação: a mesma cobrança não é recebida duas vezes (`FATURA_JA_PAGA`).
 
 - Funcionário desativado não consegue logar (`USER_DISABLED`) e perde o acesso à API na hora.
 - **Primeiro gestor:** o `npm run seed` já cria `gestor@petconnect.dev` (senha `Pet@1234`). Para criar outro manualmente, use a aba Authentication da interface dos emuladores (http://localhost:4000) → editar usuário → *Custom claims* `{"perfil":"gestor"}`.
@@ -111,6 +123,8 @@ db.collection('consultas').where('tutorId', isEqualTo: uid).orderBy('inicio');
 | `consultas/{id}` | `tutorId`, `animalId`, `animalNome`, `data`, `horario`, `inicio`, `local`, `status`, `lembreteEnviado`, `criadoEm`, `canceladoEm?`, `canceladoPor?` |
 | `horariosOcupados/{AAAA-MM-DD_HHmm}` | `data`, `horario`, `consultaId` (trava do horário) |
 | `notificacoes/{id}` | `tutorId`, `tipo` (consulta, vacina), `titulo`, `corpo`, `dados`, `lida`, `criadoEm` (o tutor lê as dele e só pode alterar `lida`) |
+| `faturas/{id}` | `registroId`, `consultaId`, `animalId`, `animalNome`, `tutorId`, `tutorNome`, `veterinarioId`, `veterinarioNome`, `descricao`, `valorCentavos`, `data`, `status` (pendente, paga), `formaPagamento`, `criadoEm`, `pagoEm`, `recebidoPorId`, `recebidoPorNome` |
+| `tarefasDia/{AAAA-MM-DD}` | `concluidas[]` (ids das tarefas), `atualizadoEm`, `atualizadoPor` — checklist do auxiliar (RF24), gravado direto pelo app |
 | `registrosMedicos/{id}` | `tipo` (atendimento, prescricao, vacina, procedimento), `animalId`, `tutorId`, `autorId`, `autorNome`, `autorPerfil`, `dados`, `proximaDose`, `criadoEm`, `versao`, `historico[]` |
 
 `consultas.status` agora pode ser `agendada`, `cancelada` ou `realizada`.

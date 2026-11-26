@@ -117,7 +117,8 @@ const OPERACOES: Record<string, Operacao> = {
   registrarAtendimento: {
     resumo: 'Registra atendimento: diagnóstico e tratamento (RF14)',
     descricao:
-      'Somente veterinário. Com consultaId, a consulta passa para "realizada". O registro guarda autor e data e não pode ser excluído (RNF16).',
+      'Somente veterinário. Com consultaId, a consulta passa para "realizada". O registro guarda autor e data e não pode ser excluído (RNF16). ' +
+      'Gera automaticamente a cobrança do atendimento (RF30).',
     tag: 'Prontuário',
     entrada: {
       type: 'object',
@@ -129,9 +130,25 @@ const OPERACOES: Record<string, Operacao> = {
         diagnostico: { type: 'string', example: 'Otite externa' },
         tratamento: { type: 'string', example: 'Limpeza e gotas otológicas por 7 dias' },
         observacoes: { type: 'string' },
+        valor: {
+          type: 'number',
+          example: 150,
+          description: 'Opcional: valor cobrado em reais (RF30). Padrão: R$ 150,00',
+        },
       },
     },
-    saida: ref('RegistroMedico'),
+    saida: {
+      allOf: [
+        ref('RegistroMedico'),
+        {
+          type: 'object',
+          properties: {
+            faturaId: { type: 'string', description: 'Cobrança gerada (RF30)' },
+            valorCentavos: { type: 'integer', example: 15000 },
+          },
+        },
+      ],
+    },
     erros: ['400', '401', '403', '404'],
   },
   registrarPrescricao: {
@@ -309,6 +326,88 @@ const OPERACOES: Record<string, Operacao> = {
     saida: ref('Ok'),
     erros: ['400', '401', '403', '404'],
   },
+  listarFaturas: {
+    resumo: 'Cobranças do período (RF30)',
+    descricao: 'Atendente ou gestor. Mais recentes primeiro. Filtro opcional por status.',
+    tag: 'Financeiro',
+    entrada: {
+      type: 'object',
+      required: ['inicio', 'fim'],
+      properties: {
+        inicio: { ...data, example: '2026-11-01' },
+        fim: { ...data, example: '2026-11-30' },
+        status: { type: 'string', enum: ['pendente', 'paga'] },
+      },
+    },
+    saida: { type: 'object', properties: { faturas: { type: 'array', items: ref('Fatura') } } },
+    erros: ['400', '401', '403'],
+  },
+  registrarPagamento: {
+    resumo: 'Registra o pagamento de uma cobrança (RF30)',
+    descricao: 'Atendente ou gestor. Usa transação: a mesma cobrança não pode ser paga duas vezes.',
+    tag: 'Financeiro',
+    entrada: {
+      type: 'object',
+      required: ['faturaId', 'formaPagamento'],
+      properties: {
+        faturaId: { type: 'string' },
+        formaPagamento: { type: 'string', enum: ['dinheiro', 'pix', 'cartao_debito', 'cartao_credito'] },
+      },
+    },
+    saida: ref('Fatura'),
+    erros: ['400', '401', '403', '404'],
+  },
+  relatorioFinanceiro: {
+    resumo: 'Relatório financeiro do período (RF31)',
+    descricao:
+      'Somente gestor. Total faturado, recebido e pendente, ticket médio, por forma de pagamento, por veterinário e por dia. ' +
+      'Valores em centavos. Período inclusivo (máx. 1 ano), horário de São Paulo.',
+    tag: 'Financeiro',
+    entrada: { type: 'object', required: ['inicio', 'fim'], properties: { inicio: { ...data, example: '2026-11-01' }, fim: { ...data, example: '2026-11-30' } } },
+    saida: {
+      type: 'object',
+      properties: {
+        inicio: { type: 'string' },
+        fim: { type: 'string' },
+        quantidade: { type: 'integer', example: 12 },
+        faturadoCentavos: { type: 'integer', example: 180000 },
+        recebidoCentavos: { type: 'integer', example: 150000 },
+        pendenteCentavos: { type: 'integer', example: 30000 },
+        ticketMedioCentavos: { type: 'integer', example: 15000 },
+        porFormaPagamento: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              formaPagamento: { type: 'string', example: 'pix' },
+              quantidade: { type: 'integer' },
+              totalCentavos: { type: 'integer' },
+            },
+          },
+        },
+        porVeterinario: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              veterinarioId: { type: 'string' },
+              nome: { type: 'string', example: 'Paula Reis' },
+              quantidade: { type: 'integer' },
+              totalCentavos: { type: 'integer' },
+            },
+          },
+        },
+        porDia: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: { data, quantidade: { type: 'integer' }, totalCentavos: { type: 'integer' } },
+          },
+        },
+      },
+    },
+    erros: ['400', '401', '403'],
+  },
 };
 
 const RESPOSTAS_ERRO: Record<string, { descricao: string; status: string }> = {
@@ -367,7 +466,7 @@ export function gerarOpenApi(servidores: { url: string; description: string }[])
     openapi: '3.0.3',
     info: {
       title: 'Pet Care API',
-      version: '0.2.0',
+      version: '0.3.0',
       description:
         'API do Pet Care (PetConnect) em Firebase Callable Functions.\n\n' +
         'Todas as chamadas são `POST` com o corpo `{ "data": { ... } }` e respondem `{ "result": { ... } }`. ' +
@@ -383,6 +482,7 @@ export function gerarOpenApi(servidores: { url: string; description: string }[])
       { name: 'Prontuário', description: 'Histórico médico, atendimentos, prescrições, vacinas e procedimentos' },
       { name: 'Clínica', description: 'Agenda do dia e relatórios' },
       { name: 'Gestão', description: 'Usuários e funcionários' },
+      { name: 'Financeiro', description: 'Faturamento e relatório financeiro' },
       { name: 'Notificações', description: 'Push e lembretes' },
     ],
     paths,
@@ -434,6 +534,32 @@ export function gerarOpenApi(servidores: { url: string; description: string }[])
                 },
               },
             },
+          },
+        },
+        Fatura: {
+          type: 'object',
+          properties: {
+            id: { type: 'string' },
+            registroId: { type: 'string', description: 'Atendimento que gerou a cobrança' },
+            consultaId: { type: 'string', nullable: true },
+            animalId: { type: 'string' },
+            animalNome: { type: 'string', example: 'Thor' },
+            tutorId: { type: 'string' },
+            tutorNome: { type: 'string', example: 'Ana Souza' },
+            veterinarioId: { type: 'string' },
+            veterinarioNome: { type: 'string', example: 'Paula Reis' },
+            descricao: { type: 'string', example: 'Consulta veterinária — Coceira na orelha' },
+            valorCentavos: { type: 'integer', example: 15000 },
+            data,
+            status: { type: 'string', enum: ['pendente', 'paga'] },
+            formaPagamento: {
+              type: 'string',
+              nullable: true,
+              enum: ['dinheiro', 'pix', 'cartao_debito', 'cartao_credito'],
+            },
+            criadoEm: { type: 'string', format: 'date-time' },
+            pagoEm: { type: 'string', format: 'date-time', nullable: true },
+            recebidoPorNome: { type: 'string', nullable: true },
           },
         },
         ItemAgenda: {

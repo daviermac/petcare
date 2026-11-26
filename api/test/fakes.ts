@@ -2,13 +2,14 @@
 import {
   AnimalRepositorio,
   ConsultaRepositorio,
+  FaturaRepositorio,
   NovoFuncionario,
   RegistroRepositorio,
   TutorRepositorio,
   UsuarioGateway,
 } from '../src/application/portas';
 import { idDoHorario } from '../src/domain/agenda';
-import { Animal, Consulta, DadosRegistro, Perfil, RegistroMedico, Tutor } from '../src/domain/entidades';
+import { Animal, Consulta, DadosRegistro, Fatura, FormaPagamento, Perfil, RegistroMedico, Tutor } from '../src/domain/entidades';
 import { ErroNegocio } from '../src/domain/erros';
 
 let seq = 0;
@@ -113,4 +114,25 @@ export class UsuariosEmMemoria implements UsuarioGateway {
   }
   async definirAtivo(uid: string, ativo: boolean) { this.ativos.set(uid, ativo); }
   async buscarPerfil(uid: string) { return this.perfis.get(uid) ?? null; }
+}
+
+export class FaturasEmMemoria implements FaturaRepositorio {
+  itens = new Map<string, Fatura>();
+  async buscarPorId(id: string) { return this.itens.get(id) ?? null; }
+  async criar(f: Omit<Fatura, 'id'>) {
+    const fatura = { id: novoId(), ...f };
+    this.itens.set(fatura.id, fatura);
+    return fatura;
+  }
+  async registrarPagamento(id: string, forma: FormaPagamento, por: { id: string; nome: string }, quando: Date) {
+    const f = this.itens.get(id);
+    if (!f) throw new ErroNegocio('NAO_ENCONTRADO', 'não existe');
+    if (f.status === 'paga') throw new ErroNegocio('FATURA_JA_PAGA', 'já paga');
+    const paga: Fatura = { ...f, status: 'paga', formaPagamento: forma, pagoEm: quando, recebidoPorId: por.id, recebidoPorNome: por.nome };
+    this.itens.set(id, paga);
+    return paga;
+  }
+  async listarPorPeriodo(inicio: string, fim: string) {
+    return [...this.itens.values()].filter((f) => f.data >= inicio && f.data <= fim);
+  }
 }

@@ -21,17 +21,17 @@ Lista completa no documento "Check-up do Pet Care" (37 RF, 16 RNF, 13 RT). Aqui 
 | RF17 Anexar exames | Essencial/Desejável | 🟨 `storage.rules` prontas |
 | RF19 Lembrete de consulta | Essencial | ✅ `lembretesDeConsulta` + coleção `notificacoes` (demo: `dispararLembretes`) |
 | RF20 Lembrete de vacina | Essencial | ✅ `lembretesDeVacina` + coleção `notificacoes` |
-| RF21 Lembrete de medicamento | Desejável | 🟨 API devolve os horários; app agenda localmente |
+| RF21 Lembrete de medicamento | Desejável | ✅ API devolve os horários; app agenda notificações locais na tela de prescrição do veterinário |
 | RF22 Tutor vê receitas | Desejável | ✅ `historicoDoAnimal` + regras |
-| RF24 Tarefas do dia (auxiliar) | Essencial | ⬜ |
+| RF24 Tarefas do dia (auxiliar) | Essencial | ✅ checklist salvo em `tarefasDia/{AAAA-MM-DD}` (regras: só auxiliar grava) |
 | RF25 Animais do dia (auxiliar) | Essencial | ✅ `agendaDoDia` (sem dados pessoais) |
 | RF26 Registrar procedimento | Essencial | ✅ `registrarProcedimento` |
-| RF30 Faturamento | Essencial | ⬜ (falta definir o valor das consultas) |
-| RF31 Relatório financeiro | Essencial | ⬜ |
+| RF30 Faturamento | Essencial | ✅ `registrarAtendimento` gera a cobrança (padrão R$ 150,00; o veterinário pode informar outro valor), `listarFaturas`, `registrarPagamento` |
+| RF31 Relatório financeiro | Essencial | ✅ `relatorioFinanceiro` (faturado, recebido, pendente, ticket médio, por forma de pagamento, veterinário e dia) |
 | RF32 Gerenciar funcionários | Essencial | ✅ `criarFuncionario` / `definirStatusFuncionario` |
 | RF33 Quantidade de atendimentos | Essencial | ✅ `relatorioAtendimentos` |
 | RF35 Desempenho por veterinário | Desejável | ✅ `relatorioAtendimentos` |
 | RNF03 Isolamento de dados (LGPD) | — | ✅ regras |
 | RNF04 Validação no servidor | — | ✅ regras + domínio |
 | RNF16 Registros médicos imutáveis | — | ✅ `corrigirRegistro` + regras (sem exclusão) |
-| RT11 Testes (≥70% nas regras de negócio) | — | ✅ `npm test` |
+| RT11 Testes (≥70% nas regras de negócio) | — | ✅ API: `npm test` (cobertura ~92%); app: `flutter test` (widget) e `integration_test/` (com emuladores) |

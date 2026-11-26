@@ -5,17 +5,20 @@ import { FieldValue, getFirestore } from 'firebase-admin/firestore';
 import { CallableRequest, HttpsError, onCall } from 'firebase-functions/v2/https';
 import { AgendamentoServico } from '../application/agendamento-servico';
 import { ClinicaServico } from '../application/clinica-servico';
+import { FaturamentoServico } from '../application/faturamento-servico';
 import { GestaoServico } from '../application/gestao-servico';
 import { Solicitante } from '../application/portas';
 import { ProntuarioServico } from '../application/prontuario-servico';
 import { TutorServico } from '../application/tutor-servico';
 import { Perfil, TipoRegistro } from '../domain/entidades';
 import { ErroNegocio, ErroValidacao } from '../domain/erros';
+import { valorEmCentavos } from '../domain/financeiro';
 import {
   COLECOES,
   FirebaseUsuarioGateway,
   FirestoreAnimalRepositorio,
   FirestoreConsultaRepositorio,
+  FirestoreFaturaRepositorio,
   FirestoreRegistroRepositorio,
   FirestoreTutorRepositorio,
 } from '../infrastructure/firestore';
@@ -30,11 +33,13 @@ const animais = new FirestoreAnimalRepositorio(db);
 const consultas = new FirestoreConsultaRepositorio(db);
 const registros = new FirestoreRegistroRepositorio(db);
 const usuarios = new FirebaseUsuarioGateway(db);
+const faturas = new FirestoreFaturaRepositorio(db);
 const tutorServico = new TutorServico(tutores, animais, usuarios);
 const agendamentoServico = new AgendamentoServico(consultas, animais);
 const prontuarioServico = new ProntuarioServico(registros, animais, consultas);
 const clinicaServico = new ClinicaServico(consultas, animais, tutores, registros);
 const gestaoServico = new GestaoServico(usuarios);
+const faturamentoServico = new FaturamentoServico(faturas, animais, tutores);
 
 const opcoes = { region: REGIAO };
 
@@ -82,6 +87,7 @@ async function executar<T>(fn: () => Promise<T>): Promise<unknown> {
         CONSULTA_NAO_ATIVA: 'failed-precondition',
         EMAIL_JA_CADASTRADO: 'already-exists',
         OPERACAO_INVALIDA: 'failed-precondition',
+        FATURA_JA_PAGA: 'failed-precondition',
       } as const;
       throw new HttpsError(mapa[e.codigo], e.message, { codigo: e.codigo });
     }
@@ -162,8 +168,21 @@ function registrar(tipo: TipoRegistro) {
   );
 }
 
-/** RF14 — atendimento (diagnóstico e tratamento). Com consultaId, marca a consulta como realizada. */
-export const registrarAtendimento = registrar('atendimento');
+/**
+ * RF14 — atendimento (diagnóstico e tratamento). Com consultaId, marca a consulta como realizada.
+ * RF30 — gera a cobrança do atendimento (campo opcional "valor", em reais; padrão: valor da consulta).
+ */
+export const registrarAtendimento = onCall(opcoes, (req) =>
+  executar(async () => {
+    const quem = await solicitante(req);
+    const { valor, ...dados } = req.data ?? {};
+    // Valida o valor antes de gravar o atendimento, para não criar registro sem cobrança.
+    if (valor !== undefined && valor !== null && valor !== '') valorEmCentavos(valor);
+    const registro = await prontuarioServico.registrar(quem, 'atendimento', dados);
+    const fatura = await faturamentoServico.faturarAtendimento(registro, valor);
+    return { ...registro, faturaId: fatura.id, valorCentavos: fatura.valorCentavos };
+  }),
+);
 
 /** RF15 — prescrição. Devolve os horários das doses para o app agendar lembretes (RF21). */
 export const registrarPrescricao = registrar('prescricao');
@@ -224,4 +243,34 @@ export const definirStatusFuncionario = onCall(opcoes, (req) =>
     await gestaoServico.definirStatus(await solicitante(req), String(req.data?.uid ?? ''), req.data?.ativo);
     return { ok: true };
   }),
+);
+
+// ---------------------------------------------------------------- Financeiro
+
+/** RF30 — cobranças do período (atendente ou gestor). status opcional: pendente | paga. */
+export const listarFaturas = onCall(opcoes, (req) =>
+  executar(async () => ({
+    faturas: await faturamentoServico.listarFaturas(
+      await solicitante(req),
+      String(req.data?.inicio ?? ''),
+      String(req.data?.fim ?? ''),
+      req.data?.status,
+    ),
+  })),
+);
+
+/** RF30 — registra o pagamento de uma cobrança (atendente ou gestor). */
+export const registrarPagamento = onCall(opcoes, (req) =>
+  executar(async () => faturamentoServico.registrarPagamento(await solicitante(req), req.data ?? {})),
+);
+
+/** RF31 — relatório financeiro do período (só gestor). */
+export const relatorioFinanceiro = onCall(opcoes, (req) =>
+  executar(async () =>
+    faturamentoServico.relatorioFinanceiro(
+      await solicitante(req),
+      String(req.data?.inicio ?? ''),
+      String(req.data?.fim ?? ''),
+    ),
+  ),
 );

@@ -21,6 +21,10 @@ export {
   // Gestão
   criarFuncionario,
   definirStatusFuncionario,
+  // Financeiro
+  listarFaturas,
+  registrarPagamento,
+  relatorioFinanceiro,
   // Notificações
   registrarTokenNotificacao,
 } from './presentation/callables';

@@ -5,6 +5,8 @@ import '../core/tema.dart';
 import '../widgets/componentes.dart';
 import 'atendente_screen.dart';
 import 'auxiliar_screen.dart';
+import 'gestor_screen.dart';
+import 'veterinario_screen.dart';
 
 class PerfilEquipeScreen extends StatelessWidget {
   final String perfil;
@@ -19,6 +21,14 @@ class PerfilEquipeScreen extends StatelessWidget {
 
     if (perfil == 'auxiliar') {
       return const AuxiliarScreen();
+    }
+
+    if (perfil == 'veterinario') {
+      return const VeterinarioScreen();
+    }
+
+    if (perfil == 'gestor') {
+      return const GestorScreen();
     }
 
     final email = FirebaseAuth.instance.currentUser?.email ?? '';
@@ -37,7 +47,7 @@ class PerfilEquipeScreen extends StatelessWidget {
               Text(email, style: Estilos.suave),
               const SizedBox(height: 16),
               const Text(
-                'As telas deste perfil ainda estão em desenvolvimento.',
+                'Perfil não reconhecido. Fale com o gestor da clínica.',
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 24),

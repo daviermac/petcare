@@ -2,7 +2,7 @@
   "openapi": "3.0.3",
   "info": {
     "title": "Pet Care API",
-    "version": "0.2.0",
+    "version": "0.3.0",
     "description": "API do Pet Care (PetConnect) em Firebase Callable Functions.\n\nTodas as chamadas são `POST` com o corpo `{ \"data\": { ... } }` e respondem `{ \"result\": { ... } }`. No Flutter use `FirebaseFunctions.instanceFor(region: \"southamerica-east1\").httpsCallable(nome)`, que faz isso automaticamente.\n\nPara testar aqui: clique em **Authorize** e cole um ID token do Firebase Auth (veja `docs/api.md`)."
   },
   "servers": [
@@ -40,6 +40,10 @@
     {
       "name": "Gestão",
       "description": "Usuários e funcionários"
+    },
+    {
+      "name": "Financeiro",
+      "description": "Faturamento e relatório financeiro"
     },
     {
       "name": "Notificações",
@@ -821,7 +825,7 @@
       "post": {
         "operationId": "registrarAtendimento",
         "summary": "Registra atendimento: diagnóstico e tratamento (RF14)",
-        "description": "Somente veterinário. Com consultaId, a consulta passa para \"realizada\". O registro guarda autor e data e não pode ser excluído (RNF16).",
+        "description": "Somente veterinário. Com consultaId, a consulta passa para \"realizada\". O registro guarda autor e data e não pode ser excluído (RNF16). Gera automaticamente a cobrança do atendimento (RF30).",
         "tags": [
           "Prontuário"
         ],
@@ -864,6 +868,11 @@
                       },
                       "observacoes": {
                         "type": "string"
+                      },
+                      "valor": {
+                        "type": "number",
+                        "example": 150,
+                        "description": "Opcional: valor cobrado em reais (RF30). Padrão: R$ 150,00"
                       }
                     }
                   }
@@ -884,7 +893,24 @@
                   ],
                   "properties": {
                     "result": {
-                      "$ref": "#/components/schemas/RegistroMedico"
+                      "allOf": [
+                        {
+                          "$ref": "#/components/schemas/RegistroMedico"
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "faturaId": {
+                              "type": "string",
+                              "description": "Cobrança gerada (RF30)"
+                            },
+                            "valorCentavos": {
+                              "type": "integer",
+                              "example": 15000
+                            }
+                          }
+                        }
+                      ]
                     }
                   }
                 }
@@ -1971,6 +1997,406 @@
           }
         }
       }
+    },
+    "/listarFaturas": {
+      "post": {
+        "operationId": "listarFaturas",
+        "summary": "Cobranças do período (RF30)",
+        "description": "Atendente ou gestor. Mais recentes primeiro. Filtro opcional por status.",
+        "tags": [
+          "Financeiro"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "data"
+                ],
+                "properties": {
+                  "data": {
+                    "type": "object",
+                    "required": [
+                      "inicio",
+                      "fim"
+                    ],
+                    "properties": {
+                      "inicio": {
+                        "type": "string",
+                        "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+                        "example": "2026-11-01",
+                        "description": "AAAA-MM-DD"
+                      },
+                      "fim": {
+                        "type": "string",
+                        "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+                        "example": "2026-11-30",
+                        "description": "AAAA-MM-DD"
+                      },
+                      "status": {
+                        "type": "string",
+                        "enum": [
+                          "pendente",
+                          "paga"
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Sucesso",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "result"
+                  ],
+                  "properties": {
+                    "result": {
+                      "type": "object",
+                      "properties": {
+                        "faturas": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/Fatura"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Dados inválidos (details.campos tem uma mensagem por campo), consulta que não está mais agendada ou operação não permitida (INVALID_ARGUMENT / FAILED_PRECONDITION)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Não logado (token ausente ou inválido) (UNAUTHENTICATED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Perfil sem permissão (PERMISSION_DENIED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/registrarPagamento": {
+      "post": {
+        "operationId": "registrarPagamento",
+        "summary": "Registra o pagamento de uma cobrança (RF30)",
+        "description": "Atendente ou gestor. Usa transação: a mesma cobrança não pode ser paga duas vezes.",
+        "tags": [
+          "Financeiro"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "data"
+                ],
+                "properties": {
+                  "data": {
+                    "type": "object",
+                    "required": [
+                      "faturaId",
+                      "formaPagamento"
+                    ],
+                    "properties": {
+                      "faturaId": {
+                        "type": "string"
+                      },
+                      "formaPagamento": {
+                        "type": "string",
+                        "enum": [
+                          "dinheiro",
+                          "pix",
+                          "cartao_debito",
+                          "cartao_credito"
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Sucesso",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "result"
+                  ],
+                  "properties": {
+                    "result": {
+                      "$ref": "#/components/schemas/Fatura"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Dados inválidos (details.campos tem uma mensagem por campo), consulta que não está mais agendada ou operação não permitida (INVALID_ARGUMENT / FAILED_PRECONDITION)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Não logado (token ausente ou inválido) (UNAUTHENTICATED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Perfil sem permissão (PERMISSION_DENIED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Animal ou consulta não encontrado (NOT_FOUND)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/relatorioFinanceiro": {
+      "post": {
+        "operationId": "relatorioFinanceiro",
+        "summary": "Relatório financeiro do período (RF31)",
+        "description": "Somente gestor. Total faturado, recebido e pendente, ticket médio, por forma de pagamento, por veterinário e por dia. Valores em centavos. Período inclusivo (máx. 1 ano), horário de São Paulo.",
+        "tags": [
+          "Financeiro"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "data"
+                ],
+                "properties": {
+                  "data": {
+                    "type": "object",
+                    "required": [
+                      "inicio",
+                      "fim"
+                    ],
+                    "properties": {
+                      "inicio": {
+                        "type": "string",
+                        "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+                        "example": "2026-11-01",
+                        "description": "AAAA-MM-DD"
+                      },
+                      "fim": {
+                        "type": "string",
+                        "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+                        "example": "2026-11-30",
+                        "description": "AAAA-MM-DD"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Sucesso",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "result"
+                  ],
+                  "properties": {
+                    "result": {
+                      "type": "object",
+                      "properties": {
+                        "inicio": {
+                          "type": "string"
+                        },
+                        "fim": {
+                          "type": "string"
+                        },
+                        "quantidade": {
+                          "type": "integer",
+                          "example": 12
+                        },
+                        "faturadoCentavos": {
+                          "type": "integer",
+                          "example": 180000
+                        },
+                        "recebidoCentavos": {
+                          "type": "integer",
+                          "example": 150000
+                        },
+                        "pendenteCentavos": {
+                          "type": "integer",
+                          "example": 30000
+                        },
+                        "ticketMedioCentavos": {
+                          "type": "integer",
+                          "example": 15000
+                        },
+                        "porFormaPagamento": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "formaPagamento": {
+                                "type": "string",
+                                "example": "pix"
+                              },
+                              "quantidade": {
+                                "type": "integer"
+                              },
+                              "totalCentavos": {
+                                "type": "integer"
+                              }
+                            }
+                          }
+                        },
+                        "porVeterinario": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "veterinarioId": {
+                                "type": "string"
+                              },
+                              "nome": {
+                                "type": "string",
+                                "example": "Paula Reis"
+                              },
+                              "quantidade": {
+                                "type": "integer"
+                              },
+                              "totalCentavos": {
+                                "type": "integer"
+                              }
+                            }
+                          }
+                        },
+                        "porDia": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "data": {
+                                "type": "string",
+                                "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+                                "example": "2026-11-09",
+                                "description": "AAAA-MM-DD"
+                              },
+                              "quantidade": {
+                                "type": "integer"
+                              },
+                              "totalCentavos": {
+                                "type": "integer"
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Dados inválidos (details.campos tem uma mensagem por campo), consulta que não está mais agendada ou operação não permitida (INVALID_ARGUMENT / FAILED_PRECONDITION)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Não logado (token ausente ou inválido) (UNAUTHENTICATED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Perfil sem permissão (PERMISSION_DENIED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -2094,6 +2520,87 @@
                 }
               }
             }
+          }
+        }
+      },
+      "Fatura": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "registroId": {
+            "type": "string",
+            "description": "Atendimento que gerou a cobrança"
+          },
+          "consultaId": {
+            "type": "string",
+            "nullable": true
+          },
+          "animalId": {
+            "type": "string"
+          },
+          "animalNome": {
+            "type": "string",
+            "example": "Thor"
+          },
+          "tutorId": {
+            "type": "string"
+          },
+          "tutorNome": {
+            "type": "string",
+            "example": "Ana Souza"
+          },
+          "veterinarioId": {
+            "type": "string"
+          },
+          "veterinarioNome": {
+            "type": "string",
+            "example": "Paula Reis"
+          },
+          "descricao": {
+            "type": "string",
+            "example": "Consulta veterinária — Coceira na orelha"
+          },
+          "valorCentavos": {
+            "type": "integer",
+            "example": 15000
+          },
+          "data": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+            "example": "2026-11-09",
+            "description": "AAAA-MM-DD"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pendente",
+              "paga"
+            ]
+          },
+          "formaPagamento": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "dinheiro",
+              "pix",
+              "cartao_debito",
+              "cartao_credito"
+            ]
+          },
+          "criadoEm": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "pagoEm": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "recebidoPorNome": {
+            "type": "string",
+            "nullable": true
           }
         }
       },

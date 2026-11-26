@@ -1,6 +1,6 @@
 // Interfaces (portas) que a camada de infraestrutura implementa.
 // Os serviços dependem só destas interfaces, o que permite testá-los sem Firestore.
-import { Animal, Consulta, DadosRegistro, Perfil, RegistroMedico, Tutor } from '../domain/entidades';
+import { Animal, Consulta, DadosRegistro, Fatura, FormaPagamento, Perfil, RegistroMedico, Tutor } from '../domain/entidades';
 
 export interface TutorRepositorio {
   buscarPorId(id: string): Promise<Tutor | null>;
@@ -41,6 +41,18 @@ export interface RegistroRepositorio {
   corrigir(id: string, dados: DadosRegistro, proximaDose: string | null, autor: { id: string; nome: string }, quando: Date): Promise<RegistroMedico>;
   /** Atendimentos registrados no período [inicio, fim). */
   listarAtendimentos(inicio: Date, fim: Date): Promise<RegistroMedico[]>;
+}
+
+export interface FaturaRepositorio {
+  buscarPorId(id: string): Promise<Fatura | null>;
+  criar(fatura: Omit<Fatura, 'id'>): Promise<Fatura>;
+  /**
+   * Marca a fatura como paga de forma atômica (transação).
+   * Lança ErroNegocio('FATURA_JA_PAGA') se ela já estiver paga.
+   */
+  registrarPagamento(id: string, forma: FormaPagamento, por: { id: string; nome: string }, quando: Date): Promise<Fatura>;
+  /** Faturas com data (AAAA-MM-DD) dentro do período inclusivo. */
+  listarPorPeriodo(inicio: string, fim: string): Promise<Fatura[]>;
 }
 
 export interface NovoFuncionario {

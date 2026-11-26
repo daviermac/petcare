@@ -34,3 +34,34 @@ bool nomeCompletoValido(String valor) {
   final nome = valor.trim().replaceAll(RegExp(r'\s+'), ' ');
   return nome.split(' ').length >= 2 && nome.length <= 100;
 }
+
+/// Valor em reais digitado pelo usuário ("150", "150,50", "1.234,56").
+/// Devolve o número ou null se for inválido. Vazio devolve null.
+double? lerValorReais(String texto) {
+  var t = texto.trim().replaceAll('R\$', '').replaceAll(' ', '');
+  if (t.isEmpty) return null;
+  if (t.contains(',')) t = t.replaceAll('.', '').replaceAll(',', '.');
+  final v = double.tryParse(t);
+  if (v == null || v <= 0 || v > 100000) return null;
+  if (!RegExp(r'^\d+(\.\d{1,2})?$').hasMatch(t)) return null;
+  return v;
+}
+
+/// Inteiro entre [min] e [max] (inclusive) ou null.
+int? lerInteiro(String texto, int min, int max) {
+  final v = int.tryParse(texto.trim());
+  if (v == null || v < min || v > max) return null;
+  return v;
+}
+
+/// Data no formato dd/mm/aaaa -> "AAAA-MM-DD" (ou null se inválida).
+String? lerDataBr(String texto) {
+  final m = RegExp(r'^(\d{2})/(\d{2})/(\d{4})$').firstMatch(texto.trim());
+  if (m == null) return null;
+  final dia = int.parse(m.group(1)!);
+  final mes = int.parse(m.group(2)!);
+  final ano = int.parse(m.group(3)!);
+  final d = DateTime(ano, mes, dia);
+  if (d.year != ano || d.month != mes || d.day != dia) return null;
+  return '${m.group(3)}-${m.group(2)}-${m.group(1)}';
+}

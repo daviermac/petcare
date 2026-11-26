@@ -4,13 +4,14 @@ import { DocumentSnapshot, FieldValue, Firestore, Timestamp } from 'firebase-adm
 import {
   AnimalRepositorio,
   ConsultaRepositorio,
+  FaturaRepositorio,
   NovoFuncionario,
   RegistroRepositorio,
   TutorRepositorio,
   UsuarioGateway,
 } from '../application/portas';
 import { idDoHorario } from '../domain/agenda';
-import { Animal, Consulta, DadosRegistro, Perfil, RegistroMedico, Tutor } from '../domain/entidades';
+import { Animal, Consulta, DadosRegistro, Fatura, FormaPagamento, Perfil, RegistroMedico, Tutor } from '../domain/entidades';
 import { ErroNegocio } from '../domain/erros';
 
 export const COLECOES = {
@@ -21,6 +22,8 @@ export const COLECOES = {
   horariosOcupados: 'horariosOcupados',
   registrosMedicos: 'registrosMedicos',
   notificacoes: 'notificacoes',
+  faturas: 'faturas',
+  tarefasDia: 'tarefasDia',
 } as const;
 
 /** Converte Timestamps do Firestore em Date (inclusive dentro de listas e objetos). */
@@ -210,6 +213,52 @@ export class FirestoreRegistroRepositorio implements RegistroRepositorio {
       .where('criadoEm', '<', fim)
       .get();
     return q.docs.map((d) => comDatas<RegistroMedico>(d));
+  }
+}
+
+export class FirestoreFaturaRepositorio implements FaturaRepositorio {
+  constructor(private readonly db: Firestore) {}
+
+  private get faturas() {
+    return this.db.collection(COLECOES.faturas);
+  }
+
+  async buscarPorId(id: string): Promise<Fatura | null> {
+    const snap = await this.faturas.doc(id).get();
+    return snap.exists ? comDatas<Fatura>(snap) : null;
+  }
+
+  async criar(fatura: Omit<Fatura, 'id'>): Promise<Fatura> {
+    const ref = await this.faturas.add(fatura);
+    return { id: ref.id, ...fatura };
+  }
+
+  async registrarPagamento(
+    id: string,
+    forma: FormaPagamento,
+    por: { id: string; nome: string },
+    quando: Date,
+  ): Promise<Fatura> {
+    const ref = this.faturas.doc(id);
+    // Transação: dois atendentes não conseguem receber a mesma cobrança duas vezes.
+    await this.db.runTransaction(async (tx) => {
+      const snap = await tx.get(ref);
+      if (!snap.exists) throw new ErroNegocio('NAO_ENCONTRADO', 'Cobrança não encontrada.');
+      if (snap.get('status') === 'paga') throw new ErroNegocio('FATURA_JA_PAGA', 'Esta cobrança já foi paga.');
+      tx.update(ref, {
+        status: 'paga',
+        formaPagamento: forma,
+        pagoEm: quando,
+        recebidoPorId: por.id,
+        recebidoPorNome: por.nome,
+      });
+    });
+    return (await this.buscarPorId(id))!;
+  }
+
+  async listarPorPeriodo(inicio: string, fim: string): Promise<Fatura[]> {
+    const q = await this.faturas.where('data', '>=', inicio).where('data', '<=', fim).get();
+    return q.docs.map((d) => comDatas<Fatura>(d));
   }
 }
 

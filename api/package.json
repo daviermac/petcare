@@ -1,6 +1,6 @@
 {
   "name": "petcare-api",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "description": "API do Pet Care (Firebase Cloud Functions em camadas)",
   "main": "lib/index.js",
@@ -12,6 +12,7 @@
     "build:watch": "tsc --watch",
     "test": "jest",
     "test:coverage": "jest --coverage",
+    "test:integracao": "jest -c jest.integracao.config.js --runInBand",
     "serve": "npm run emuladores",
     "deploy": "firebase deploy --only functions",
     "logs": "firebase functions:log",

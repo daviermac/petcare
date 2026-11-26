@@ -2,7 +2,8 @@ import '../core/firebase_setup.dart';
 import 'notificacoes_medicacao.dart';
 
 class PrescricaoMedicacaoService {
-  /// Registra a prescrição e agenda os lembretes devolvidos pela API.
+  /// Registra a prescrição (RF15) e agenda os lembretes devolvidos pela API (RF21).
+  /// A resposta traz também `lembretesAgendados` (quantos ficaram no aparelho).
   static Future<Map<String, dynamic>> registrar({
     required String animalId,
     required String animalNome,
@@ -34,8 +35,9 @@ class PrescricaoMedicacaoService {
             .toList() ??
         [];
 
+    registro['lembretesAgendados'] = 0;
     if (horarios.isNotEmpty) {
-      await NotificacoesMedicacao.agendarLembretes(
+      registro['lembretesAgendados'] = await NotificacoesMedicacao.agendarLembretes(
         idBase: _gerarIdNumerico(id),
         animal: animalNome,
         medicamento: medicamento,

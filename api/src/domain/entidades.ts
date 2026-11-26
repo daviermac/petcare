@@ -102,3 +102,36 @@ export interface Consulta {
   canceladoEm?: Date;
   canceladoPor?: string;
 }
+
+// ---------------------------------------------------------------- Financeiro (RF30, RF31)
+
+export type FormaPagamento = 'dinheiro' | 'pix' | 'cartao_debito' | 'cartao_credito';
+
+export type StatusFatura = 'pendente' | 'paga';
+
+/**
+ * Cobrança gerada automaticamente quando o veterinário registra um atendimento (RF30).
+ * Valores em centavos (inteiro) para não ter erro de arredondamento.
+ */
+export interface Fatura {
+  id: string;
+  /** Atendimento (registrosMedicos) que gerou a cobrança. */
+  registroId: string;
+  consultaId: string | null;
+  animalId: string;
+  animalNome: string;
+  tutorId: string;
+  tutorNome: string;
+  veterinarioId: string;
+  veterinarioNome: string;
+  descricao: string;
+  valorCentavos: number;
+  /** Data do atendimento (AAAA-MM-DD, horário de São Paulo). Usada nos relatórios. */
+  data: string;
+  status: StatusFatura;
+  formaPagamento: FormaPagamento | null;
+  criadoEm: Date;
+  pagoEm: Date | null;
+  recebidoPorId: string | null;
+  recebidoPorNome: string | null;
+}
